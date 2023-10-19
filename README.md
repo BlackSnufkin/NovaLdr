@@ -49,10 +49,12 @@ As this project is a learning journey, contributions, suggestions, and enhanceme
 - [import_dll_injection](https://www.x86matthew.com/view_post?id=import_dll_injection) :pushpin: (will be added later)
 
 # POC
-![Screenshot 2023-10-19 142856](https://github.com/BlackSnufkin/NovaLdr/assets/61916899/7cefc69b-cbdf-4a0a-bf1e-6eb280721ed1)
+![Screenshot 2023-09-26 105643](https://github.com/BlackSnufkin/NovaLdr/assets/61916899/1b6004de-1c3e-416f-b60f-0a2b0813fb3e)
+
+
 
 # PE-SIEVE
-![Screenshot 2023-10-19 142029](https://github.com/BlackSnufkin/NovaLdr/assets/61916899/3b4bcbd8-bb57-41c8-bc2d-56e7f2ef03ee)
+![Screenshot 2023-10-19 142029](https://github.com/BlackSnufkin/NovaLdr/assets/61916899/1bfc6dbd-db2d-4254-a467-643aac6744a9)
 
 
 
