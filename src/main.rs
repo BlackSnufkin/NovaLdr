@@ -1,3 +1,5 @@
+// In memory of all those murdered in the Nova party massacre 7.10.2023
+// Bring back the kidnapped
 #![allow(non_snake_case, dead_code, unused_imports)]
 #[macro_use]
 extern crate litcrypt;
