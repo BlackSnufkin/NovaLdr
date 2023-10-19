@@ -1,4 +1,4 @@
-# NovaLdr :snowflake:
+# NovaLdr :fleur_de_lis:
 > NovaLdr is a shellcode loader written in Rust, designed as a learning project while exploring the world of malware development. It uses advanced techniques like indirect syscalls and string encryption to achieve its functionalities. This project is not intended to be a complete or polished product but rather a journey into the technical aspects of malware, showcasing various techniques and features.
 
 # Features Overview :bulb:
@@ -29,3 +29,4 @@ NovaLdr is intended for educational and research purposes only. The author is no
 # Contributing :chart_with_upwards_trend:
 As this project is a learning journey, contributions, suggestions, and enhancements are welcome to make NovaLdr a valuable resource for learning malware development in Rust.
 
+# Resources & Credit :trollface:
