@@ -29,7 +29,7 @@ NovaLdr is intended for educational and research purposes only. The author is no
 # Contributing :chart_with_upwards_trend:
 As this project is a learning journey, contributions, suggestions, and enhancements are welcome to make NovaLdr a valuable resource for learning malware development in Rust.
 
-# Resources & Credit :trollface:
+# Resources & Credit :round_pushpin:
 
 - [masking-malicious-memory-artifacts-part-ii-insights-from-moneta](https://www.cyberark.com/resources/threat-research-blog/masking-malicious-memory-artifacts-part-ii-insights-from-moneta)
 - [masking-malicious-memory-artifacts-part-iii-bypassing-defensive-scanners](https://www.cyberark.com/resources/threat-research-blog/masking-malicious-memory-artifacts-part-iii-bypassing-defensive-scanners)
