@@ -18,7 +18,7 @@
    * **No GetModuleHandleA & GetProcAddress**: Custome Function that using NT functions
 
 # Usage: :hammer_and_wrench:
-   * Generate Shellcode file: `sfvenom -p windows/x64/messagebox TITLE=NovaLdr TEXT='In memory of all those murdered in the Nova party massacre 7.10.2023' ICON=WARNING EXITFUNC=thread -b '\xff\x00\x0b' -f raw -e none -o Nova_MSG.bin`
+   * Generate Shellcode file: `msfvenom -p windows/x64/messagebox TITLE=NovaLdr TEXT='In memory of all those murdered in the Nova party massacre 7.10.2023' ICON=WARNING EXITFUNC=thread -b '\xff\x00\x0b' -f raw -e none -o Nova_MSG.bin`
    * Encrypt the shellcode file and convert it to MAC address format `python bin2mac.py Nova_MSG.bin > nova_msg.txt`
    * Copy the content of the output file and paste it to the main.rs file
    * Compile the the program just run the file `compile.bat`
