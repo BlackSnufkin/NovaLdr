@@ -1,5 +1,5 @@
 # NovaLdr :snowflake:
-> NovaLdr is a shellcode loader written in Rust, developed during a learning experience in malware development. While it incorporates various advanced features, it's imperative to acknowledge that it's still a work in progress and might not be the most polished tool out there.
+> NovaLdr is a shellcode loader written in Rust, designed as a learning project while exploring the world of malware development. It uses advanced techniques like indirect syscalls and string encryption to achieve its functionalities. This project is not intended to be a complete or polished product but rather a journey into the technical aspects of malware, showcasing various techniques and features.
 
 
 # Features Overview :bulb:
