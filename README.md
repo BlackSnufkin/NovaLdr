@@ -51,7 +51,7 @@ As this project is a learning journey, contributions, suggestions, and enhanceme
 # POC
 ![Screenshot 2023-10-19 142856](https://github.com/BlackSnufkin/NovaLdr/assets/61916899/7cefc69b-cbdf-4a0a-bf1e-6eb280721ed1)
 
-# PE-SIE
+# PE-SIEVE
 ![Screenshot 2023-10-19 142029](https://github.com/BlackSnufkin/NovaLdr/assets/61916899/3b4bcbd8-bb57-41c8-bc2d-56e7f2ef03ee)
 VE
 
