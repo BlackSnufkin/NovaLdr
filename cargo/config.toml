@@ -1,0 +1,3 @@
+[build]
+rustflags = ["-C", "link-arg=-s", "--remap-path-prefix", "C:\\Users\\L.Ackerman="]
+target = "x86_64-pc-windows-msvc"  # Set this to your desired target
