@@ -30,3 +30,20 @@ NovaLdr is intended for educational and research purposes only. The author is no
 As this project is a learning journey, contributions, suggestions, and enhancements are welcome to make NovaLdr a valuable resource for learning malware development in Rust.
 
 # Resources & Credit :trollface:
+
+- [masking-malicious-memory-artifacts-part-ii-insights-from-moneta](https://www.cyberark.com/resources/threat-research-blog/masking-malicious-memory-artifacts-part-ii-insights-from-moneta)
+- [masking-malicious-memory-artifacts-part-iii-bypassing-defensive-scanners](https://www.cyberark.com/resources/threat-research-blog/masking-malicious-memory-artifacts-part-iii-bypassing-defensive-scanners)
+- [alternative-process-injection](https://www.netero1010-securitylab.com/evasion/alternative-process-injection)
+- [custom_getmodulehandle_getprocaddress](https://blog.atsika.ninja/posts/custom_getmodulehandle_getprocaddress)
+- [nim-noload-dll-hollowing](https://tishina.in/execution/nim-noload-dll-hollowing)
+- [Malwear-Sweet](https://github.com/0prrr/Malwear-Sweet)
+- [dll-unlinking](https://blog.christophetd.fr/dll-unlinking/)
+- [operating-into-EDRs-blindspot](https://www.naksyn.com/edr%20evasion/2022/09/01/operating-into-EDRs-blindspot.html)
+- [Hidding Module from the HashTable](http://www.ivanlef0u.tuxfamily.org/?p=365)
+- [module-pebldr-hiding-all-4-methods](http://www.rohitab.com/discuss/topic/41944-module-pebldr-hiding-all-4-methods/)
+- [NtCreateUserProcess](https://offensivedefence.co.uk/posts/ntcreateuserprocess/)
+- [Defcon31](https://github.com/OtterHacker/Conferences/tree/main/Defcon31)
+- [process-injection-evading-edr-in-2023](https://vanmieghem.io/process-injection-evading-edr-in-2023/)
+- [StackMask](https://github.com/WKL-Sec/StackMask)
+-  [no-alloc-no-problem-leveraging-program-entry-points-for-process-injection](https://bohops.com/2023/06/09/no-alloc-no-problem-leveraging-program-entry-points-for-process-injection/)
+- [import_dll_injection](https://www.x86matthew.com/view_post?id=import_dll_injection)
