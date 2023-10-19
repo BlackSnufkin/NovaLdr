@@ -49,7 +49,8 @@ As this project is a learning journey, contributions, suggestions, and enhanceme
 - [import_dll_injection](https://www.x86matthew.com/view_post?id=import_dll_injection) :pushpin: (will be added later)
 
 # POC
-![Screenshot 2023-09-26 105643](https://github.com/BlackSnufkin/NovaLdr/assets/61916899/1b6004de-1c3e-416f-b60f-0a2b0813fb3e)
+![Screenshot 2023-10-19 142856](https://github.com/BlackSnufkin/NovaLdr/assets/61916899/39e7176b-eed3-4891-a322-d119064eabfe)
+
 
 
 
