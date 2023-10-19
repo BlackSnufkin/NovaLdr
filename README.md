@@ -1,3 +1,3 @@
 # NovaLdr
-> This is a Shellcode Loader that i made in rust Not the best one just something i made while learing some malware development
+> NovaLdr is a shellcode loader written in Rust, developed during a learning experience in malware development. While it incorporates various advanced features, it's imperative to acknowledge that it's still a work in progress and might not be the most polished tool out there.
 
