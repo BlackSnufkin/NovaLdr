@@ -1,5 +1,5 @@
 # NovaLdr :fleur_de_lis:
-> NovaLdr is a Module Stomping written in Rust, designed as a learning project while exploring the world of malware development. It uses advanced techniques like indirect syscalls and string encryption to achieve its functionalities. This project is not intended to be a complete or polished product but rather a journey into the technical aspects of malware, showcasing various techniques and features.
+> NovaLdr is a Threadless Module Stomping written in Rust, designed as a learning project while exploring the world of malware development. It uses advanced techniques like indirect syscalls and string encryption to achieve its functionalities. This project is not intended to be a complete or polished product but rather a journey into the technical aspects of malware, showcasing various techniques and features.
 
 # Features Overview :bulb:
    * **Idirect Sycalls**
