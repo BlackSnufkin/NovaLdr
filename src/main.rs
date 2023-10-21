@@ -716,7 +716,7 @@ fn threadless_thread(process_handle: *mut c_void, executable_code_address: *mut 
     let mut hooked_bytes: [u8; 12] = [0; 12];
     loop {
         println!("{}", lc!("[+] Waiting 10 seconds for the hook to be called..."));
-        encrypted_sleep(10000);
+        encrypted_sleep(30000);
         let hook_check_status = unsafe {
             syscall!(
                 "ZwReadVirtualMemory",
