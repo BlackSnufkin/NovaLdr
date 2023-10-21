@@ -20,7 +20,7 @@ winapi = { version = "0.3.9", features =["ntdef", "ntstatus", "minwindef", "winn
 memoffset = "0.6"
 litcrypt = "0.3"
 widestring = "0.5.1"
-
+rand = "0.8.0"
 
 [dependencies.windows-sys]
 version = "0.48"
