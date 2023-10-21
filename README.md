@@ -45,7 +45,7 @@ As this project is a learning journey, contributions, suggestions, and enhanceme
 - [NtCreateUserProcess](https://offensivedefence.co.uk/posts/ntcreateuserprocess/)
 - [Defcon31](https://github.com/OtterHacker/Conferences/tree/main/Defcon31)
 - [process-injection-evading-edr-in-2023](https://vanmieghem.io/process-injection-evading-edr-in-2023/)
-- [StackMask](https://github.com/WKL-Sec/StackMask) :pushpin: (will be added later)
+- [StackMask](https://github.com/WKL-Sec/StackMask)
 - [import_dll_injection](https://www.x86matthew.com/view_post?id=import_dll_injection) :pushpin: (will be added later)
 
 # POC
