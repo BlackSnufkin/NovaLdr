@@ -4,6 +4,14 @@
 #[macro_use]
 extern crate litcrypt;
 
+// HoLAI imports
+use std::sync::atomic::{AtomicBool, Ordering};
+use winapi::um::processthreadsapi::*;
+use winapi::um::memoryapi::*;
+use winapi::um::winnt::*;
+use winapi::shared::minwindef::*;
+use winapi::shared::basetsd::*;
+// HoLAI imports
 use memoffset::offset_of;
 use obfstr::obfstr;
 use rust_syscalls::syscall;
