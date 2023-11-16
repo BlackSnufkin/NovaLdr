@@ -16,7 +16,8 @@
    * **Spawning Process**: spawning suspended process with **NtCreateUserProcess** and Spoofing the PPID and Setting the process to Block DLL
    * **Ntdll Unhooking**: Remote and local Ntdll Unhooking using Parun's Fart technique
    * **No GetModuleHandleA & GetProcAddress**: Custome Function that using NT functions
-   * **Sleep Encrypt**: custom sleep function that encrypts the stack during its sleep duration using a separate thread.  
+   * **Sleep Encrypt**: custom sleep function that encrypts the stack during its sleep duration using a separate thread.
+   * **HWBP**: In process Patchless AMSI + ETW Bypass with HWBP on all threads. 
 
 # Usage: :hammer_and_wrench:
    * Generate Shellcode file: `msfvenom -p windows/x64/messagebox TITLE=NovaLdr TEXT='In memory of all those murdered in the Nova party massacre 7.10.2023' ICON=WARNING EXITFUNC=thread -b '\xff\x00\x0b' -f raw -e none -o Nova_MSG.bin`
@@ -46,6 +47,8 @@ As this project is a learning journey, contributions, suggestions, and enhanceme
 - [Defcon31](https://github.com/OtterHacker/Conferences/tree/main/Defcon31)
 - [process-injection-evading-edr-in-2023](https://vanmieghem.io/process-injection-evading-edr-in-2023/)
 - [StackMask](https://github.com/WKL-Sec/StackMask)
+- [Patchless Amsi Bypass](https://gist.github.com/CCob/fe3b63d80890fafeca982f76c8a3efdf)
+- [PatchlessHook](https://github.com/ScriptIdiot/sleepmask_PatchlessHook)
 - [import_dll_injection](https://www.x86matthew.com/view_post?id=import_dll_injection) :pushpin: (will be added later)
 
 # POC
