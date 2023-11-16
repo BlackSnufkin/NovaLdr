@@ -370,7 +370,7 @@ fn inject_dll(process: &mut Process) {
         .expect(obfstr!("Failed to get ntdll.dll base"));
 
     let load_address = get_proc_address(dll_base, "NtCreateUserProcess")
-        .expect(obfstr!("Failed to get CreateEventA address"));
+        .expect(obfstr!("Failed to get NtCreateUserProcess address"));
 
     println!("{} {:#x}", lc!("[+] Crafted Assembly at address:"), shellcode_address as usize);
 
