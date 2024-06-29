@@ -1617,7 +1617,7 @@ fn spawn_process(ppid: u64, process: &mut Process) {
 // C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE
 
         let nt_image_path = U16CString::from_str("\\??\\C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE").unwrap();
-        let current_directory = U16CString::from_str("\\??\\C:\\Program Files\\Microsoft Office\\root\\Office16").unwrap();
+        let current_directory = U16CString::from_str("\\??\\C:\\Program Files\\Microsoft Office\\root\\Office16\\").unwrap();
         let command_line = U16CString::from_str(" ").unwrap();
 
         let mut nt_image_path_us = UNICODE_STRING {
